@@ -3,13 +3,12 @@ package edu.umd.lib.tomcat.valves;
 import java.io.IOException;
 import java.security.Principal;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import javax.servlet.ServletException;
 
-import org.apache.catalina.authenticator.AuthenticatorBase;
-import org.apache.catalina.authenticator.Constants;
+import org.apache.catalina.Context;
 import org.apache.catalina.connector.Request;
-import org.apache.catalina.deploy.LoginConfig;
+import org.apache.catalina.connector.Response;
+import org.apache.catalina.valves.ValveBase;
 import org.apache.juli.logging.Log;
 import org.apache.juli.logging.LogFactory;
 import org.apache.tomcat.util.buf.B2CConverter;
@@ -20,14 +19,12 @@ import org.apache.tomcat.util.codec.binary.Base64;
 /**
  * 
  * @author peichman
- * @todo Is there a better way to implement this apart from copying the BasicAuthenticator and adding the code to return
- *       true on a request without credentials?
  */
-public class OptionalBasicAuthenticator extends AuthenticatorBase {
+public class OptionalBasicAuthenticator extends ValveBase {
 
   private static final Log log = LogFactory.getLog(OptionalBasicAuthenticator.class);
 
-  protected static final String info = "edu.umd.lib.tomcat.valves.OptionalBasicAuthenticator/0.1";
+  protected static final String info = "edu.umd.lib.tomcat.valves.OptionalBasicAuthenticator/0.0.1";
 
   @Override
   public String getInfo() {
@@ -35,52 +32,17 @@ public class OptionalBasicAuthenticator extends AuthenticatorBase {
   }
 
   @Override
-  public boolean authenticate(Request request, HttpServletResponse response, LoginConfig config) throws IOException {
-
-    // Have we already authenticated someone?
-    Principal principal = request.getUserPrincipal();
-    String ssoId = (String) request.getNote(Constants.REQ_SSOID_NOTE);
-    if (principal != null) {
-      if (log.isDebugEnabled()) {
-        log.debug("Already authenticated '" + principal.getName() + "'");
-      }
-      // Associate the session with any existing SSO session
-      if (ssoId != null) {
-        associate(ssoId, request.getSessionInternal(true));
-      }
-      return (true);
-    }
-
-    // Is there an SSO session against which we can try to reauthenticate?
-    if (ssoId != null) {
-      if (log.isDebugEnabled()) {
-        log.debug("SSO Id " + ssoId + " set; attempting " + "reauthentication");
-      }
-      /*
-       * Try to reauthenticate using data cached by SSO. If this fails, either the original SSO logon was of DIGEST or
-       * SSL (which we can't reauthenticate ourselves because there is no cached username and password), or the realm
-       * denied the user's reauthentication for some reason. In either case we have to prompt the user for a logon
-       */
-      if (reauthenticateFromSSO(ssoId, request)) {
-        return true;
-      }
-    }
-
-    // Validate any credentials already included with this request
-    String username = null;
-    String password = null;
-
+  public void invoke(Request request, Response response) throws IOException, ServletException {
+    // check for an HTTP Authorization request header
     MessageBytes authorization = request.getCoyoteRequest().getMimeHeaders().getValue("authorization");
 
-    // when there is no Authorization header, then
-    // pass this through as an unauthenticated request
-    // TODO: can we implement just this code somehow instead of copying all of the BasicAuthenticator?
-    if (authorization == null) {
-      return true;
-    }
-
+    // if there is an Authorization header, then check the provided credentials
     if (authorization != null) {
+      String username = null;
+      String password = null;
+
       authorization.toBytes();
+      log.debug("Authorization header found: " + authorization.toString());
       ByteChunk authorizationBC = authorization.getByteChunk();
       if (authorizationBC.startsWithIgnoreCase("basic ", 0)) {
         authorizationBC.setOffset(authorizationBC.getOffset() + 6);
@@ -107,30 +69,34 @@ public class OptionalBasicAuthenticator extends AuthenticatorBase {
         authorizationBC.setOffset(authorizationBC.getOffset() - 6);
       }
 
-      principal = context.getRealm().authenticate(username, password);
+      Context context = request.getContext();
+      Principal principal = context.getRealm().authenticate(username, password);
       if (principal != null) {
-        register(request, response, principal, HttpServletRequest.BASIC_AUTH, username, password);
-        return (true);
+        log.debug("User principal " + principal.getName() + " has been authenticated");
+        request.setUserPrincipal(principal);
+      } else {
+        log.debug("Authentication failed with the provided credentials");
+
+        // TODO: we could issue an HTTP Basic authentication challenge at this point;
+        // the problem is we need to get the proper realm name; need to have a parameter on the valve?
+
+        // log.debug("Sending 401 Unauthorized header");
+        // StringBuilder value = new StringBuilder(16);
+        // value.append("Basic realm=\"");
+        // if (config.getRealmName() == null) {
+        // value.append(REALM_NAME);
+        // } else {
+        // value.append(config.getRealmName());
+        // }
+        // value.append('\"');
+        // response.setHeader(AUTH_HEADER_NAME, value.toString());
+        // response.sendError(HttpServletResponse.SC_UNAUTHORIZED);
       }
-    }
-
-    StringBuilder value = new StringBuilder(16);
-    value.append("Basic realm=\"");
-    if (config.getRealmName() == null) {
-      value.append(REALM_NAME);
     } else {
-      value.append(config.getRealmName());
+      log.debug("No authorization header in the request, doing no authentication");
     }
-    value.append('\"');
-    response.setHeader(AUTH_HEADER_NAME, value.toString());
-    response.sendError(HttpServletResponse.SC_UNAUTHORIZED);
-    return (false);
 
-  }
-
-  @Override
-  protected String getAuthMethod() {
-    return HttpServletRequest.BASIC_AUTH;
+    getNext().invoke(request, response);
   }
 
 }
