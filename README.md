@@ -4,8 +4,9 @@
 ## Usage
 
 * `mvn clean package` and place the JAR file in `/var/lib/tomcat7/lib`
-* Add a `<Valve className="edu.umd.lib.tomcat.valves.OptionalBasicAuthenticator"/>` element to the `/var/lib/tomcat7/conf/context.xml`
-* Disable the `<login-config>` section of the webapp's `web.xml`
+* Add a `<Valve className="edu.umd.lib.tomcat.valves.OptionalBasicAuthenticator"/>`
+  element to the `<Context>` element in the webapp's `context.xml` file 
+  (`/var/lib/tomcat7/webapps/{webapp}/META-INF/context.xml`)
 * Ensure that there is no authentication configured in the webapp's `web.xml`
 
 ## Description
