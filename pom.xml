@@ -2,7 +2,7 @@
   xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
 
-  <groupId>lib.umd.edu</groupId>
+  <groupId>edu.umd.lib</groupId>
   <artifactId>optional-authn-valve</artifactId>
   <version>0.0.1-SNAPSHOT</version>
   <packaging>jar</packaging>
@@ -13,6 +13,19 @@
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <tomcat.version>7.0.52</tomcat.version>
   </properties>
+  
+  <distributionManagement>
+    <repository>
+      <id>nexus</id>
+      <name>Releases</name>
+      <url>https://maven.lib.umd.edu/nexus/content/repositories/releases</url>
+    </repository>
+    <snapshotRepository>
+      <id>nexus</id>
+      <name>Snapshots</name>
+      <url>https://maven.lib.umd.edu/nexus/content/repositories/snapshots</url>
+    </snapshotRepository>
+  </distributionManagement>
 
   <dependencies>
     <dependency>
