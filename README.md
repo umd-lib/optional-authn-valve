@@ -58,3 +58,8 @@ added to the request.
 
 Uses client certificates instead of HTTP Basic authentication. The user
 principal name will be the DN on the certificate.
+
+## License
+
+See the [LICENSE](LICENSE.md) file for license rights and limitations (Apache 2.0).
+
